@@ -1,0 +1,16 @@
+[package]
+name = "pomo"
+version = "0.1.0"
+edition = "2024"
+description = "A visual Pomodoro timer for the console"
+license = "MIT"
+
+[[bin]]
+name = "pomo"
+path = "src/main.rs"
+
+[dependencies]
+crossterm = "0.27"
+clap = { version = "4", features = ["derive"] }
+rodio = "0.17"
+ctrlc = "3"
