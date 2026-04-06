@@ -34,7 +34,7 @@ cargo build --release
 On Linux `libasound2-dev` (ALSA) must be present for audio support:
 
 ```bash
-sudo apt-get install libasound2-dev   # Debian/Ubuntu
+sudo apt-get install -y libasound2-dev --allow-unauthenticated  # Debian/Ubuntu
 ```
 
 ## Usage
