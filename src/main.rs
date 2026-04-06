@@ -191,6 +191,52 @@ fn run_session(
     Ok(true)
 }
 
+/// Temporarily redirect stderr to `/dev/null`, run `f`, then restore it.
+///
+/// The ALSA C library writes diagnostic messages directly to file descriptor 2
+/// even when rodio ultimately handles the error gracefully.  This wrapper
+/// suppresses that noise without affecting the Rust-level error path.
+#[cfg(unix)]
+fn with_stderr_suppressed<F: FnOnce() -> T, T>(f: F) -> T {
+    use std::fs::OpenOptions;
+    use std::os::unix::io::AsRawFd;
+
+    // Save a duplicate of the real stderr so we can restore it afterwards.
+    let saved_fd = unsafe { libc::dup(2) };
+
+    // Only attempt the redirect when both dup() and opening /dev/null succeed.
+    if saved_fd >= 0
+        && let Ok(devnull) = OpenOptions::new().write(true).open("/dev/null")
+    {
+        // `devnull` owns the fd; `as_raw_fd()` borrows without consuming it,
+        // so the File drop will close it when this block exits.
+        let null_fd = devnull.as_raw_fd();
+        // If dup2 fails we leave stderr as-is; ALSA messages may still
+        // appear but there is no fd leak.
+        unsafe {
+            libc::dup2(null_fd, 2);
+        }
+        // `devnull` is dropped here, closing null_fd.
+    }
+
+    let result = f();
+
+    // Restore the real stderr regardless of what happened inside `f`.
+    if saved_fd >= 0 {
+        unsafe {
+            libc::dup2(saved_fd, 2);
+            libc::close(saved_fd);
+        }
+    }
+
+    result
+}
+
+#[cfg(not(unix))]
+fn with_stderr_suppressed<F: FnOnce() -> T, T>(f: F) -> T {
+    f()
+}
+
 /// Play a short audible notification when a session ends.
 ///
 /// Attempts to produce a 440 Hz sine-wave tone via `rodio`.  If no audio
@@ -199,7 +245,8 @@ fn play_notification() {
     use rodio::source::{SineWave, Source};
     use rodio::{OutputStream, Sink};
 
-    let result = (|| -> Result<(), Box<dyn std::error::Error>> {
+    // Suppress ALSA's C-level stderr chatter while the device probe runs.
+    let result = with_stderr_suppressed(|| -> Result<(), Box<dyn std::error::Error>> {
         let (_stream, handle) = OutputStream::try_default()?;
         let sink = Sink::try_new(&handle)?;
 
@@ -216,7 +263,7 @@ fn play_notification() {
 
         sink.sleep_until_end();
         Ok(())
-    })();
+    });
 
     if result.is_err() {
         // Fall back to the terminal bell
