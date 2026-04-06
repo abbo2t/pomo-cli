@@ -80,8 +80,9 @@ fn draw_bar(fraction: f64, label: &str, kind: SessionKind) -> io::Result<()> {
     let filled = ((fraction * term_width as f64).round() as usize).min(term_width);
 
     // Centre the label within the full terminal width
-    let label_bytes = label.as_bytes();
-    let label_len = label.chars().count();
+    // Collect into chars so that multi-byte Unicode codepoints are handled correctly.
+    let label_chars: Vec<char> = label.chars().collect();
+    let label_len = label_chars.len();
     let label_start = if term_width >= label_len {
         (term_width - label_len) / 2
     } else {
@@ -98,8 +99,7 @@ fn draw_bar(fraction: f64, label: &str, kind: SessionKind) -> io::Result<()> {
 
         // Determine the character at this position
         let ch = if i >= label_start && i < label_end {
-            // Safety: i - label_start is within [0, label_len)
-            char::from(label_bytes[i - label_start])
+            label_chars[i - label_start]
         } else {
             ' '
         };
