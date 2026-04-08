@@ -180,7 +180,6 @@ fn run_session(
         format!("{}  00:00", kind.label())
     };
     draw_bar(0.0, &label, kind)?;
-    println!();
 
     execute!(stdout(), cursor::Show)?;
 
@@ -311,7 +310,6 @@ fn main() -> io::Result<()> {
         let is_long_break = work_count.is_multiple_of(sessions_per_cycle);
 
         if is_long_break {
-            println!("Long break — great work!");
             let completed = run_session(
                 long_break_duration,
                 SessionKind::LongBreak,
@@ -324,7 +322,6 @@ fn main() -> io::Result<()> {
                 break;
             }
         } else {
-            println!("Short break!");
             let completed = run_session(
                 short_break_duration,
                 SessionKind::ShortBreak,
